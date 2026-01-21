@@ -4,6 +4,7 @@ import { Bell, ExternalLink, Plus, RefreshCw, Trash2 } from 'lucide-react'
 
 import {
   discoverFeeds,
+  ensureUser,
   getHomeData,
   getPushConfig,
   subscribeToFeed,
@@ -34,6 +35,8 @@ function Home() {
   )
   const [subscribeBusyUrl, setSubscribeBusyUrl] = useState<string | null>(null)
   const [subscribeError, setSubscribeError] = useState<string | null>(null)
+  const [getStartedBusy, setGetStartedBusy] = useState(false)
+  const [getStartedError, setGetStartedError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!('Notification' in window)) {
@@ -131,6 +134,51 @@ function Home() {
   async function onUnsubscribe(feedId: string) {
     await unsubscribeFeed({ data: { feedId } })
     await router.invalidate()
+  }
+
+  async function onGetStarted() {
+    setGetStartedError(null)
+    setGetStartedBusy(true)
+    try {
+      await ensureUser()
+      await router.invalidate()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to create account'
+      if (msg === 'ip_user_limit_reached') {
+        setGetStartedError('Too many accounts created from this IP address.')
+      } else {
+        setGetStartedError(msg)
+      }
+    } finally {
+      setGetStartedBusy(false)
+    }
+  }
+
+  if (!data.userId) {
+    return (
+      <main className="mx-auto w-full max-w-xl px-4 pb-24 pt-4">
+        <section className="space-y-3">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-center">
+            <h2 className="text-lg font-semibold text-white">Welcome to Purssh</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Get push notifications for your favorite RSS feeds.
+            </p>
+            <button
+              type="button"
+              onClick={onGetStarted}
+              disabled={getStartedBusy}
+              className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-6 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
+            >
+              {getStartedBusy ? <RefreshCw className="h-4 w-4 animate-spin" /> : null}
+              Get Started
+            </button>
+            {getStartedError && (
+              <p className="mt-3 text-sm text-red-400">{getStartedError}</p>
+            )}
+          </div>
+        </section>
+      </main>
+    )
   }
 
   return (

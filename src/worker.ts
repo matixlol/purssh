@@ -2,7 +2,7 @@ import { createStartHandler, defaultStreamHandler } from '@tanstack/react-start/
 import pMap from 'p-map'
 
 import { withSetCookie } from './server/http'
-import { ensureUserIdentity } from './server/user'
+import { getUserIdentity } from './server/user'
 import type { NotifyMessage } from './server/notify'
 import { fetchAndStoreFeed, shouldPauseFeed } from './server/feedFetcher'
 
@@ -12,9 +12,10 @@ import type { Env } from './env'
 
 type StartRequestContext = {
   env: Env
+  request: Request
   cf?: Request['cf']
   waitUntil: ExecutionContext['waitUntil']
-  userId: string
+  userId: string | null
   ip: string
 }
 
@@ -28,27 +29,18 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
-    try {
-      const identity = await ensureUserIdentity(request, env.DB)
-      const response = await startHandler(request, {
-        context: {
-          env,
-          cf: request.cf,
-          waitUntil: ctx.waitUntil.bind(ctx),
-          userId: identity.userId,
-          ip: identity.ip,
-        } satisfies StartRequestContext,
-      })
-      return withSetCookie(response, identity.setCookieHeader)
-    } catch (err) {
-      if (err instanceof Error && err.message === 'ip_user_limit_reached') {
-        return new Response('Too many users created from this IP address (limit: 3).', {
-          status: 429,
-          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-        })
-      }
-      throw err
-    }
+    const identity = await getUserIdentity(request, env.DB)
+    const response = await startHandler(request, {
+      context: {
+        env,
+        request,
+        cf: request.cf,
+        waitUntil: ctx.waitUntil.bind(ctx),
+        userId: identity.userId,
+        ip: identity.ip,
+      } satisfies StartRequestContext,
+    })
+    return withSetCookie(response, identity.setCookieHeader)
   },
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     const now = Date.now()

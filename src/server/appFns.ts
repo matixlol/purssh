@@ -1,7 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 
-import { getStartContextOrThrow } from './startContext'
+import { getStartContext, getStartContextOrThrow } from './startContext'
 import { fetchWithTimeout } from './fetchWithTimeout'
+import { createUser } from './user'
 
 type SubscribedFeed = {
   id: string
@@ -27,7 +28,18 @@ type EntryRow = {
 }
 
 export const getHomeData = createServerFn({ method: 'GET' }).handler(async (ctx) => {
-  const { env, userId } = getStartContextOrThrow(ctx)
+  const context = getStartContext(ctx)
+
+  if (!context.userId) {
+    return {
+      userId: null,
+      hasPushSubscription: false,
+      feeds: [] as SubscribedFeed[],
+      entries: [] as EntryRow[],
+    }
+  }
+
+  const { env, userId } = context
 
   const feeds = await env.DB.prepare(
     `
@@ -254,8 +266,19 @@ export const upsertPushSubscription = createServerFn({ method: 'POST' }).handler
 })
 
 export const getPushConfig = createServerFn({ method: 'GET' }).handler(async (ctx) => {
-  const { env } = getStartContextOrThrow(ctx)
+  const { env } = getStartContext(ctx)
   return {
     vapidPublicKey: env.VAPID_PUBLIC_KEY,
   }
+})
+
+export const ensureUser = createServerFn({ method: 'POST' }).handler(async (ctx) => {
+  const context = getStartContext(ctx)
+
+  if (context.userId) {
+    return { userId: context.userId, setCookieHeader: null }
+  }
+
+  const identity = await createUser(context.env.DB, context.ip)
+  return { userId: identity.userId, setCookieHeader: identity.setCookieHeader }
 })
