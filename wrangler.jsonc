@@ -7,7 +7,8 @@
 	"name": "purssh",
 	"compatibility_date": "2025-09-02",
 	"compatibility_flags": [
-		"nodejs_compat"
+		"nodejs_compat",
+		"global_fetch_strictly_public"
 	],
 	"main": "src/worker.ts",
 	"observability": {
@@ -43,7 +44,7 @@
 		]
 	},
 	"vars": {
-		"VAPID_PUBLIC_KEY": "BHcM-h-in1NhEBsAbY92Ajnj6hYqadmiz6sUfZcdcL9PeoQXaZvLg9EFzOM5hca8x9LUwNd661X_R1mI5gCxrC8",
+		"VAPID_PUBLIC_KEY": "BHp3saHAhdcI9ZRZUIxIeFHv3riuuYxVUFw6qI0CWF9Z3ahjm9dj13iS5QlVkzNr5YfmRyxvGagv77O5NBx4YHc",
 		"VAPID_SUBJECT": "mailto:hola@mati.lol"
 	}
 	/**

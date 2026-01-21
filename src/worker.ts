@@ -6,7 +6,49 @@ import { getUserIdentity } from './server/user'
 import type { NotifyMessage } from './server/notify'
 import { fetchAndStoreFeed, shouldPauseFeed } from './server/feedFetcher'
 
-import { deserializeVapidKeys, sendPushNotification } from 'web-push-browser'
+import { deserializeVapidKeys, sendPushNotification, toBase64Url, fromBase64Url } from 'web-push-browser'
+
+function normalizeVapidSubject(subject: string): string {
+  return subject.startsWith('mailto:') ? subject.slice('mailto:'.length) : subject
+}
+
+// Import raw 32-byte VAPID private key via JWK and export as PKCS8
+async function importVapidKeys(
+  publicKeyBase64Url: string,
+  privateKeyBase64Url: string,
+): Promise<{ publicKey: CryptoKey; privateKey: CryptoKey }> {
+  const rawPrivate = fromBase64Url(privateKeyBase64Url)
+  const rawPublic = fromBase64Url(publicKeyBase64Url)
+
+  // If private key is already PKCS8 format (> 32 bytes), use deserializeVapidKeys directly
+  if (rawPrivate.byteLength > 32) {
+    return deserializeVapidKeys({ publicKey: publicKeyBase64Url, privateKey: privateKeyBase64Url })
+  }
+
+  // Raw public key is 65 bytes: 0x04 || x (32 bytes) || y (32 bytes)
+  const pubBytes = new Uint8Array(rawPublic)
+  const x = toBase64Url(pubBytes.slice(1, 33))
+  const y = toBase64Url(pubBytes.slice(33, 65))
+  const d = toBase64Url(rawPrivate)
+
+  const privateKey = await crypto.subtle.importKey(
+    'jwk',
+    { kty: 'EC', crv: 'P-256', x, y, d, ext: true },
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['sign'],
+  )
+
+  const publicKey = await crypto.subtle.importKey(
+    'raw',
+    rawPublic,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['verify'],
+  )
+
+  return { publicKey, privateKey }
+}
 
 import type { Env } from './env'
 
@@ -146,21 +188,23 @@ export default {
     ctx.waitUntil(Promise.resolve())
   },
   async queue(batch: MessageBatch<NotifyMessage>, env: Env, _ctx: ExecutionContext) {
+    console.log(`[queue] Processing batch of ${batch.messages.length} messages`)
+
     if (!env.VAPID_PRIVATE_KEY) {
+      console.log('[queue] VAPID_PRIVATE_KEY not set, retrying batch')
       batch.retryAll({ delaySeconds: 60 })
       return
     }
 
-    const keyPair = await deserializeVapidKeys({
-      publicKey: env.VAPID_PUBLIC_KEY,
-      privateKey: env.VAPID_PRIVATE_KEY,
-    })
+    const keyPair = await importVapidKeys(env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY)
 
     await pMap(
       batch.messages,
       async (message) => {
         try {
           const body = message.body
+          console.log(`[queue] Processing message type=${body.type} userId=${body.userId} feedId=${body.feedId}`)
+
           const subsRes = await env.DB.prepare(
             'SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?',
           )
@@ -168,7 +212,10 @@ export default {
             .all<{ id: string; endpoint: string; p256dh: string; auth: string }>()
 
           const subs = subsRes.results ?? []
+          console.log(`[queue] Found ${subs.length} push subscriptions for user`)
+
           if (subs.length === 0) {
+            console.log('[queue] No subscriptions, acking message')
             message.ack()
             return
           }
@@ -182,26 +229,34 @@ export default {
           })
 
           for (const sub of subs) {
+            console.log(`[queue] Sending push to endpoint=${sub.endpoint.slice(0, 50)}...`)
             const res = await sendPushNotification(
               keyPair,
               {
                 endpoint: sub.endpoint,
                 keys: { p256dh: sub.p256dh, auth: sub.auth },
               },
-              env.VAPID_SUBJECT,
+              normalizeVapidSubject(env.VAPID_SUBJECT),
               payload,
               { algorithm: 'aes128gcm' },
             )
 
+            console.log(`[queue] Push response status=${res.status}`)
+
             if (res.status === 404 || res.status === 410) {
+              console.log(`[queue] Subscription expired, deleting id=${sub.id}`)
               await env.DB.prepare('DELETE FROM push_subscriptions WHERE id = ?').bind(sub.id).run()
             } else if (!res.ok) {
-              throw new Error(`push_failed_${res.status}`)
+              const text = await res.text()
+              console.log(`[queue] Push failed: ${text}`)
+              throw new Error(`push_failed_${res.status}: ${text}`)
             }
           }
 
+          console.log('[queue] Message processed successfully, acking')
           message.ack()
-        } catch {
+        } catch (err) {
+          console.log(`[queue] Error processing message: ${err}`)
           message.retry({ delaySeconds: 30 })
         }
       },

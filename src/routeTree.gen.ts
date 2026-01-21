@@ -10,11 +10,23 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SecretVerifyVapidRouteImport } from './routes/secret/verify-vapid'
+import { Route as SecretTestNotifyRouteImport } from './routes/secret/test-notify'
 import { Route as SecretFeedRouteImport } from './routes/secret/feed'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecretVerifyVapidRoute = SecretVerifyVapidRouteImport.update({
+  id: '/secret/verify-vapid',
+  path: '/secret/verify-vapid',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecretTestNotifyRoute = SecretTestNotifyRouteImport.update({
+  id: '/secret/test-notify',
+  path: '/secret/test-notify',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SecretFeedRoute = SecretFeedRouteImport.update({
@@ -26,27 +38,44 @@ const SecretFeedRoute = SecretFeedRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/secret/feed': typeof SecretFeedRoute
+  '/secret/test-notify': typeof SecretTestNotifyRoute
+  '/secret/verify-vapid': typeof SecretVerifyVapidRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/secret/feed': typeof SecretFeedRoute
+  '/secret/test-notify': typeof SecretTestNotifyRoute
+  '/secret/verify-vapid': typeof SecretVerifyVapidRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/secret/feed': typeof SecretFeedRoute
+  '/secret/test-notify': typeof SecretTestNotifyRoute
+  '/secret/verify-vapid': typeof SecretVerifyVapidRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/secret/feed'
+  fullPaths:
+    | '/'
+    | '/secret/feed'
+    | '/secret/test-notify'
+    | '/secret/verify-vapid'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/secret/feed'
-  id: '__root__' | '/' | '/secret/feed'
+  to: '/' | '/secret/feed' | '/secret/test-notify' | '/secret/verify-vapid'
+  id:
+    | '__root__'
+    | '/'
+    | '/secret/feed'
+    | '/secret/test-notify'
+    | '/secret/verify-vapid'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SecretFeedRoute: typeof SecretFeedRoute
+  SecretTestNotifyRoute: typeof SecretTestNotifyRoute
+  SecretVerifyVapidRoute: typeof SecretVerifyVapidRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -56,6 +85,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/secret/verify-vapid': {
+      id: '/secret/verify-vapid'
+      path: '/secret/verify-vapid'
+      fullPath: '/secret/verify-vapid'
+      preLoaderRoute: typeof SecretVerifyVapidRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/secret/test-notify': {
+      id: '/secret/test-notify'
+      path: '/secret/test-notify'
+      fullPath: '/secret/test-notify'
+      preLoaderRoute: typeof SecretTestNotifyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/secret/feed': {
@@ -71,6 +114,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SecretFeedRoute: SecretFeedRoute,
+  SecretTestNotifyRoute: SecretTestNotifyRoute,
+  SecretVerifyVapidRoute: SecretVerifyVapidRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,4 +1,6 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { useMutation } from '@tanstack/react-query'
+import { useServerFn } from '@tanstack/react-start'
 import { useEffect, useMemo, useState } from 'react'
 import { Bell, ExternalLink, Plus, RefreshCw, Trash2 } from 'lucide-react'
 
@@ -24,19 +26,12 @@ function Home() {
 
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default')
   const [isStandalone, setIsStandalone] = useState(false)
-  const [pushBusy, setPushBusy] = useState(false)
-  const [pushError, setPushError] = useState<string | null>(null)
 
   const [feedUrl, setFeedUrl] = useState('')
-  const [discoverBusy, setDiscoverBusy] = useState(false)
-  const [discoverError, setDiscoverError] = useState<string | null>(null)
   const [candidates, setCandidates] = useState<Array<{ url: string; title: string | null; type: string | null }> | null>(
     null,
   )
-  const [subscribeBusyUrl, setSubscribeBusyUrl] = useState<string | null>(null)
-  const [subscribeError, setSubscribeError] = useState<string | null>(null)
-  const [getStartedBusy, setGetStartedBusy] = useState(false)
-  const [getStartedError, setGetStartedError] = useState<string | null>(null)
+  const [subscribingUrl, setSubscribingUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!('Notification' in window)) {
@@ -62,15 +57,18 @@ function Home() {
   const installSteps = useMemo(() => {
     return [
       'Tap the Share button (square with arrow).',
-      'Tap “Add to Home Screen”.',
+      'Tap "Add to Home Screen".',
       'Open the app from your Home Screen.',
     ]
   }, [])
 
-  async function onEnableNotifications() {
-    setPushError(null)
-    setPushBusy(true)
-    try {
+  const getStartedMutation = useMutation({
+    mutationFn: useServerFn(ensureUser),
+    onSuccess: () => router.invalidate(),
+  })
+
+  const pushMutation = useMutation({
+    mutationFn: async () => {
       if (!('Notification' in window)) throw new Error('Notifications not supported')
       const perm = await Notification.requestPermission()
       setPermission(perm)
@@ -85,74 +83,51 @@ function Home() {
       await upsertPushSubscription({
         data: { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
       })
-      await router.invalidate()
-    } catch (e) {
-      setPushError(e instanceof Error ? e.message : 'Failed to enable notifications')
-    } finally {
-      setPushBusy(false)
-    }
-  }
+    },
+    onSuccess: () => router.invalidate(),
+  })
 
-  async function onDiscover() {
-    setDiscoverError(null)
-    setSubscribeError(null)
-    setCandidates(null)
-    setDiscoverBusy(true)
-    try {
-      const res = await discoverFeeds({ data: { url: feedUrl } })
+  const discoverMutation = useMutation({
+    mutationFn: useServerFn(discoverFeeds),
+    onSuccess: (res) => {
       setCandidates(res.candidates)
-      if (res.candidates.length === 0) {
-        setDiscoverError('No RSS/Atom feeds found at that URL.')
-      }
-    } catch (e) {
-      setDiscoverError(e instanceof Error ? e.message : 'Failed to discover feeds')
-    } finally {
-      setDiscoverBusy(false)
-    }
-  }
+    },
+  })
 
-  async function onSubscribe(url: string) {
-    setSubscribeError(null)
-    setSubscribeBusyUrl(url)
-    try {
-      await subscribeToFeed({ data: { feedUrl: url } })
+  const subscribeMutation = useMutation({
+    mutationFn: useServerFn(subscribeToFeed),
+    onSuccess: () => {
       setCandidates(null)
       setFeedUrl('')
-      await router.invalidate()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to subscribe'
-      if (msg === 'feed_limit_reached') {
-        setSubscribeError('Feed limit reached (max 15).')
-      } else {
-        setSubscribeError(msg)
-      }
-    } finally {
-      setSubscribeBusyUrl(null)
-    }
+      router.invalidate()
+    },
+  })
+
+  const unsubscribeMutation = useMutation({
+    mutationFn: useServerFn(unsubscribeFeed),
+    onSuccess: () => router.invalidate(),
+  })
+
+  function onDiscover() {
+    discoverMutation.reset()
+    subscribeMutation.reset()
+    setCandidates(null)
+    discoverMutation.mutate({ data: { url: feedUrl } })
   }
 
-  async function onUnsubscribe(feedId: string) {
-    await unsubscribeFeed({ data: { feedId } })
-    await router.invalidate()
+  function onSubscribe(url: string) {
+    subscribeMutation.reset()
+    setSubscribingUrl(url)
+    subscribeMutation.mutate({ data: { feedUrl: url } })
   }
 
-  async function onGetStarted() {
-    setGetStartedError(null)
-    setGetStartedBusy(true)
-    try {
-      await ensureUser()
-      await router.invalidate()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to create account'
-      if (msg === 'ip_user_limit_reached') {
-        setGetStartedError('Too many accounts created from this IP address.')
-      } else {
-        setGetStartedError(msg)
-      }
-    } finally {
-      setGetStartedBusy(false)
-    }
-  }
+  const discoverError = discoverMutation.error?.message
+  const subscribeError = subscribeMutation.error?.message === 'feed_limit_reached'
+    ? 'Feed limit reached (max 15).'
+    : subscribeMutation.error?.message
+  const getStartedError = getStartedMutation.error?.message === 'ip_user_limit_reached'
+    ? 'Too many accounts created from this IP address.'
+    : getStartedMutation.error?.message
 
   if (!data.userId) {
     return (
@@ -165,11 +140,11 @@ function Home() {
             </p>
             <button
               type="button"
-              onClick={onGetStarted}
-              disabled={getStartedBusy}
+              onClick={() => getStartedMutation.mutate({})}
+              disabled={getStartedMutation.isPending}
               className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-6 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
             >
-              {getStartedBusy ? <RefreshCw className="h-4 w-4 animate-spin" /> : null}
+              {getStartedMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : null}
               Get Started
             </button>
             {getStartedError && (
@@ -213,11 +188,11 @@ function Home() {
               <div className="mt-3 flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={onEnableNotifications}
-                  disabled={pushBusy || permission === 'unsupported' || permission === 'denied'}
+                  onClick={() => pushMutation.mutate()}
+                  disabled={pushMutation.isPending || permission === 'unsupported' || permission === 'denied'}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50"
                 >
-                  {pushBusy ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                  {pushMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
                   {permission === 'granted' ? 'Set up push' : 'Enable'}
                 </button>
                 {data.hasPushSubscription && (
@@ -227,7 +202,7 @@ function Home() {
                 )}
               </div>
 
-              {pushError && <div className="mt-3 text-sm text-rose-300">{pushError}</div>}
+              {pushMutation.error && <div className="mt-3 text-sm text-rose-300">{pushMutation.error.message}</div>}
             </div>
           </div>
         </div>
@@ -247,14 +222,17 @@ function Home() {
             <button
               type="button"
               onClick={onDiscover}
-              disabled={!feedUrl || discoverBusy}
+              disabled={!feedUrl || discoverMutation.isPending}
               className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-slate-800 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {discoverBusy ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {discoverMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Find
             </button>
           </div>
           {discoverError && <div className="mt-2 text-sm text-rose-300">{discoverError}</div>}
+          {discoverMutation.isSuccess && candidates?.length === 0 && (
+            <div className="mt-2 text-sm text-rose-300">No RSS/Atom feeds found at that URL.</div>
+          )}
           {subscribeError && <div className="mt-2 text-sm text-rose-300">{subscribeError}</div>}
 
           {candidates && candidates.length > 0 && (
@@ -264,7 +242,7 @@ function Home() {
                   key={c.url}
                   type="button"
                   onClick={() => onSubscribe(c.url)}
-                  disabled={subscribeBusyUrl === c.url}
+                  disabled={subscribeMutation.isPending && subscribingUrl === c.url}
                   className="w-full rounded-xl border border-slate-800 bg-slate-950 p-3 text-left text-sm hover:border-cyan-500/40 disabled:opacity-50"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -274,7 +252,7 @@ function Home() {
                       {c.type && <div className="mt-1 text-xs text-slate-500">{c.type}</div>}
                     </div>
                     <div className="mt-0.5 text-xs font-medium text-cyan-200">
-                      {subscribeBusyUrl === c.url ? 'Adding…' : 'Subscribe'}
+                      {subscribeMutation.isPending && subscribingUrl === c.url ? 'Adding…' : 'Subscribe'}
                     </div>
                   </div>
                 </button>
@@ -319,7 +297,7 @@ function Home() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => onUnsubscribe(f.id)}
+                  onClick={() => unsubscribeMutation.mutate({ data: { feedId: f.id } })}
                   className="rounded-xl bg-slate-800 p-2 text-slate-200 hover:bg-slate-700"
                   aria-label="Unsubscribe"
                 >

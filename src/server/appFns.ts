@@ -142,6 +142,7 @@ function extractLinkTags(html: string): Array<{ rel: string; type: string | null
 export const discoverFeeds = createServerFn({ method: 'POST' })
   .handler(async (ctx) => {
     const { url } = (ctx.data ?? {}) as { url?: string }
+    console.log('[discoverFeeds] called', { url })
     if (!url) throw new Error('Missing url')
 
     const parsed = new URL(url)
@@ -156,8 +157,10 @@ export const discoverFeeds = createServerFn({ method: 'POST' })
 
     const contentType = res.headers.get('content-type')?.toLowerCase() ?? ''
     const body = await res.text()
+    console.log('[discoverFeeds] fetched', { status: res.status, contentType, bodyLength: body.length })
 
     if (contentType.includes('xml') || looksLikeFeedXml(body)) {
+      console.log('[discoverFeeds] detected as feed XML')
       return {
         pageUrl: res.url,
         candidates: [{ url: res.url, title: null, type: contentType || 'application/xml' }] satisfies DiscoverCandidate[],
@@ -274,11 +277,19 @@ export const getPushConfig = createServerFn({ method: 'GET' }).handler(async (ct
 
 export const ensureUser = createServerFn({ method: 'POST' }).handler(async (ctx) => {
   const context = getStartContext(ctx)
+  console.log('[ensureUser] called', { existingUserId: context.userId, ip: context.ip })
 
   if (context.userId) {
+    console.log('[ensureUser] returning existing user', context.userId)
     return { userId: context.userId, setCookieHeader: null }
   }
 
-  const identity = await createUser(context.env.DB, context.ip)
-  return { userId: identity.userId, setCookieHeader: identity.setCookieHeader }
+  try {
+    const identity = await createUser(context.env.DB, context.ip)
+    console.log('[ensureUser] created new user', identity.userId)
+    return { userId: identity.userId, setCookieHeader: identity.setCookieHeader }
+  } catch (err) {
+    console.error('[ensureUser] failed to create user', err)
+    throw err
+  }
 })
