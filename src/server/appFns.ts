@@ -149,7 +149,7 @@ export const discoverFeeds = createServerFn({ method: 'POST' })
     const res = await fetchWithTimeout(parsed.toString(), {
       redirect: 'follow',
       headers: {
-        'User-Agent': 'purssh/0.1 (+https://example.invalid)',
+        'User-Agent': 'purssh/0.1 (+https://purssh.com)',
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
       timeoutMs: 15_000,

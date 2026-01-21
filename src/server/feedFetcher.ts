@@ -4,7 +4,7 @@ import { fetchWithTimeout } from './fetchWithTimeout'
 import { parseFeedXml } from './rss'
 import { sha256Base64Url } from './crypto'
 
-const USER_AGENT = 'purssh/0.1 (+https://example.invalid)'
+const USER_AGENT = 'purssh/0.1 (+https://purssh.com)'
 
 export type FeedRow = {
   id: string
