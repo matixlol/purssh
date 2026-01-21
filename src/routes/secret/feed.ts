@@ -43,7 +43,7 @@ ${items
 `
 }
 
-export const Route = createFileRoute('/secret/feed/api')({
+export const Route = createFileRoute('/secret/feed')({
   server: {
     handlers: {
       GET: ({ request }) => {

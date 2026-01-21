@@ -10,43 +10,43 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SecretFeedApiRouteImport } from './routes/secret/feed.api'
+import { Route as SecretFeedRouteImport } from './routes/secret/feed'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SecretFeedApiRoute = SecretFeedApiRouteImport.update({
-  id: '/secret/feed/api',
-  path: '/secret/feed/api',
+const SecretFeedRoute = SecretFeedRouteImport.update({
+  id: '/secret/feed',
+  path: '/secret/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/secret/feed/api': typeof SecretFeedApiRoute
+  '/secret/feed': typeof SecretFeedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/secret/feed/api': typeof SecretFeedApiRoute
+  '/secret/feed': typeof SecretFeedRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/secret/feed/api': typeof SecretFeedApiRoute
+  '/secret/feed': typeof SecretFeedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/secret/feed/api'
+  fullPaths: '/' | '/secret/feed'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/secret/feed/api'
-  id: '__root__' | '/' | '/secret/feed/api'
+  to: '/' | '/secret/feed'
+  id: '__root__' | '/' | '/secret/feed'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  SecretFeedApiRoute: typeof SecretFeedApiRoute
+  SecretFeedRoute: typeof SecretFeedRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,11 +58,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/secret/feed/api': {
-      id: '/secret/feed/api'
-      path: '/secret/feed/api'
-      fullPath: '/secret/feed/api'
-      preLoaderRoute: typeof SecretFeedApiRouteImport
+    '/secret/feed': {
+      id: '/secret/feed'
+      path: '/secret/feed'
+      fullPath: '/secret/feed'
+      preLoaderRoute: typeof SecretFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -70,7 +70,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  SecretFeedApiRoute: SecretFeedApiRoute,
+  SecretFeedRoute: SecretFeedRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
