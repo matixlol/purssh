@@ -59,7 +59,7 @@ export async function createUser(db: D1Database, ip: string): Promise<UserIdenti
     .bind(ip)
     .first<{ c: number }>()
 
-  if ((usersForIp?.c ?? 0) >= 3) {
+  if ((usersForIp?.c ?? 0) >= 15) {
     throw new Error('ip_user_limit_reached')
   }
 
@@ -83,4 +83,3 @@ export async function createUser(db: D1Database, ip: string): Promise<UserIdenti
 
   return { userId, secret: newSecret, setCookieHeader, ip }
 }
-

@@ -281,13 +281,21 @@ export const ensureUser = createServerFn({ method: 'POST' }).handler(async (ctx)
 
   if (context.userId) {
     console.log('[ensureUser] returning existing user', context.userId)
-    return { userId: context.userId, setCookieHeader: null }
+    return new Response(JSON.stringify({ userId: context.userId }), {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
   }
 
   try {
     const identity = await createUser(context.env.DB, context.ip)
     console.log('[ensureUser] created new user', identity.userId)
-    return { userId: identity.userId, setCookieHeader: identity.setCookieHeader }
+    const headers = new Headers({
+      'Content-Type': 'application/json',
+    })
+    if (identity.setCookieHeader) headers.append('Set-Cookie', identity.setCookieHeader)
+    return new Response(JSON.stringify({ userId: identity.userId }), { headers })
   } catch (err) {
     console.error('[ensureUser] failed to create user', err)
     throw err
