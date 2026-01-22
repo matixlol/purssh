@@ -6,6 +6,7 @@ import { Bell, ExternalLink, Plus, RefreshCw, Trash2 } from 'lucide-react'
 
 import {
   discoverFeeds,
+  deletePushSubscriptions,
   ensureUser,
   getHomeData,
   getPushConfig,
@@ -101,6 +102,22 @@ function Home() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: homeQueryKey }),
   })
 
+  const disablePushMutation = useMutation({
+    mutationFn: async () => {
+      let endpoint: string | undefined
+
+      if ('serviceWorker' in navigator) {
+        const reg = (await navigator.serviceWorker.getRegistration()) ?? (await navigator.serviceWorker.ready)
+        const existing = await reg.pushManager.getSubscription()
+        endpoint = existing?.endpoint
+        if (existing) await existing.unsubscribe()
+      }
+
+      await deletePushSubscriptions({ data: endpoint ? { endpoint } : {} })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: homeQueryKey }),
+  })
+
   const discoverMutation = useMutation({
     mutationFn: useServerFn(discoverFeeds),
     onSuccess: (res) => {
@@ -145,6 +162,8 @@ function Home() {
     ? 'Too many accounts created from this IP address.'
     : getStartedMutation.error?.message
 
+  const notificationsEnabled = permission === 'granted' && data.hasPushSubscription
+
   if (!data.userId) {
     return (
       <main className="mx-auto w-full max-w-xl px-4 pb-24 pt-4">
@@ -175,53 +194,77 @@ function Home() {
   return (
     <main className="mx-auto w-full max-w-xl px-4 pb-24 pt-4">
       <section className="space-y-3">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 rounded-xl bg-slate-800 p-2">
-              <Bell className="h-5 w-5 text-slate-100" />
+        {notificationsEnabled ? (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="inline-flex items-center gap-2 text-sm">
+                <Bell className="h-4 w-4 text-emerald-200" />
+                <span className="font-medium text-white">Notifications are enabled</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const ok = window.confirm('Disable notifications?')
+                  if (!ok) return
+                  disablePushMutation.mutate()
+                }}
+                disabled={disablePushMutation.isPending}
+                className="inline-flex items-center justify-center rounded-xl bg-slate-800 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+              >
+                {disablePushMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Disable'}
+              </button>
             </div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-white">Enable notifications</div>
-              <div className="mt-1 text-sm text-slate-300">
-                {permission === 'unsupported' && 'This browser does not support notifications.'}
-                {permission === 'default' && 'Turn on push so you can get alerts when new entries arrive.'}
-                {permission === 'denied' && 'Notifications are blocked for this site. Enable them in Settings.'}
-                {permission === 'granted' &&
-                  (data.hasPushSubscription ? 'Notifications are enabled.' : 'Permission granted — finish setup.')}
+            {disablePushMutation.error && (
+              <div className="mt-2 text-sm text-rose-300">{disablePushMutation.error.message}</div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-xl bg-slate-800 p-2">
+                <Bell className="h-5 w-5 text-slate-100" />
               </div>
-
-              {!isStandalone && (
-                <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
-                  <div className="font-semibold">iOS required step: install the app</div>
-                  <ol className="mt-2 list-decimal space-y-1 pl-4">
-                    {installSteps.map((s) => (
-                      <li key={s}>{s}</li>
-                    ))}
-                  </ol>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-white">Enable notifications</div>
+                <div className="mt-1 text-sm text-slate-300">
+                  {permission === 'unsupported' && 'This browser does not support notifications.'}
+                  {permission === 'default' && 'Enable notifications to get alerts when new entries arrive.'}
+                  {permission === 'denied' && 'Notifications are blocked for this site. Enable them in Settings.'}
+                  {permission === 'granted' && 'Enable notifications to set up push.'}
                 </div>
-              )}
 
-              <div className="mt-3 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => pushMutation.mutate()}
-                  disabled={pushMutation.isPending || permission === 'unsupported' || permission === 'denied'}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50"
-                >
-                  {pushMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                  {permission === 'granted' ? 'Set up push' : 'Enable'}
-                </button>
-                {data.hasPushSubscription && (
-                  <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-200">
-                    Active
-                  </span>
+                {!isStandalone && (
+                  <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+                    <div className="font-semibold">iOS required step: install the app</div>
+                    <ol className="mt-2 list-decimal space-y-1 pl-4">
+                      {installSteps.map((s) => (
+                        <li key={s}>{s}</li>
+                      ))}
+                    </ol>
+                  </div>
                 )}
-              </div>
 
-              {pushMutation.error && <div className="mt-3 text-sm text-rose-300">{pushMutation.error.message}</div>}
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => pushMutation.mutate()}
+                    disabled={pushMutation.isPending || permission === 'unsupported' || permission === 'denied'}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                  >
+                    {pushMutation.isPending ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Bell className="h-4 w-4" />
+                    )}
+                    Enable notifications
+                  </button>
+                </div>
+
+                {pushMutation.error && <div className="mt-3 text-sm text-rose-300">{pushMutation.error.message}</div>}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </section>
 
       <section className="mt-6 space-y-3">

@@ -279,6 +279,24 @@ export const upsertPushSubscription = createServerFn({ method: 'POST' }).handler
   return { ok: true }
 })
 
+export const deletePushSubscriptions = createServerFn({ method: 'POST' }).handler(async (ctx) => {
+  const { env, userId } = getStartContextOrThrow(ctx)
+  const { endpoint } = (ctx.data ?? {}) as { endpoint?: string }
+
+  if (endpoint) {
+    await env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?')
+      .bind(userId, endpoint)
+      .run()
+    return { ok: true }
+  }
+
+  await env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id = ?')
+    .bind(userId)
+    .run()
+
+  return { ok: true }
+})
+
 export const getPushConfig = createServerFn({ method: 'GET' }).handler(async (ctx) => {
   const { env } = getStartContext(ctx)
   return {
