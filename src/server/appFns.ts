@@ -4,6 +4,7 @@ import { getStartContext, getStartContextOrThrow } from './startContext'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { createUser } from './user'
 import { fetchAndStoreFeed } from './feedFetcher'
+import { parseFeedXml } from './rss'
 
 type SubscribedFeed = {
   id: string
@@ -162,9 +163,10 @@ export const discoverFeeds = createServerFn({ method: 'POST' })
 
     if (contentType.includes('xml') || looksLikeFeedXml(body)) {
       console.log('[discoverFeeds] detected as feed XML')
+      const parsed = parseFeedXml(body)
       return {
         pageUrl: res.url,
-        candidates: [{ url: res.url, title: null, type: contentType || 'application/xml' }] satisfies DiscoverCandidate[],
+        candidates: [{ url: res.url, title: parsed.title, type: contentType || 'application/xml' }] satisfies DiscoverCandidate[],
       }
     }
 
@@ -182,13 +184,34 @@ export const discoverFeeds = createServerFn({ method: 'POST' })
       })
       .map((l) => {
         const absolute = new URL(l.href, res.url).toString()
-        return { url: absolute, title: l.title, type: l.type }
+        return { url: absolute, type: l.type }
       })
 
-    const deduped = new Map<string, DiscoverCandidate>()
+    const deduped = new Map<string, { url: string; type: string | null }>()
     for (const c of links) deduped.set(c.url, c)
 
-    return { pageUrl: res.url, candidates: Array.from(deduped.values()) }
+    // Fetch each feed to get the real title
+    const candidates: DiscoverCandidate[] = await Promise.all(
+      Array.from(deduped.values()).map(async (c) => {
+        try {
+          const feedRes = await fetchWithTimeout(c.url, {
+            redirect: 'follow',
+            headers: {
+              'User-Agent': 'purssh/0.1 (+https://purssh.com)',
+              Accept: 'application/rss+xml,application/atom+xml,application/xml,text/xml;q=0.9,*/*;q=0.8',
+            },
+            timeoutMs: 10_000,
+          })
+          const feedBody = await feedRes.text()
+          const parsed = parseFeedXml(feedBody)
+          return { url: c.url, title: parsed.title, type: c.type }
+        } catch {
+          return { url: c.url, title: null, type: c.type }
+        }
+      })
+    )
+
+    return { pageUrl: res.url, candidates }
   })
 
 export const subscribeToFeed = createServerFn({ method: 'POST' }).handler(async (ctx) => {

@@ -309,12 +309,11 @@ function Home() {
                   disabled={subscribeMutation.isPending && subscribingUrl === c.url}
                   className="w-full rounded-xl border border-slate-800 bg-slate-950 p-3 text-left text-sm hover:border-cyan-500/40 disabled:opacity-50"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold text-white">{c.title ?? c.url}</div>
-                      <div className="mt-1 truncate text-xs text-slate-400">{c.url}</div>
-                      {c.type && <div className="mt-1 text-xs text-slate-500">{c.type}</div>}
-                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold text-white">{c.title ?? c.url}</div>
+                        <div className="mt-1 truncate text-xs text-slate-400">{c.url}</div>
+                      </div>
                     <div className="mt-0.5 text-xs font-medium text-cyan-200">
                       {subscribeMutation.isPending && subscribingUrl === c.url ? 'Adding…' : 'Subscribe'}
                     </div>
