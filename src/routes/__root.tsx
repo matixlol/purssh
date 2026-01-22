@@ -5,6 +5,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import Header from '../components/Header'
 import PwaClient from '../components/PwaClient'
+import { ThemeProvider } from '../contexts/ThemeContext'
 
 import appCss from '../styles.css?url'
 
@@ -21,6 +22,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: 'theme-color',
         content: '#020617',
+        media: '(prefers-color-scheme: dark)',
+      },
+      {
+        name: 'theme-color',
+        content: '#f8fafc',
+        media: '(prefers-color-scheme: light)',
       },
       {
         name: 'apple-mobile-web-app-capable',
@@ -61,20 +68,22 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <Header />
-        {children}
-        <PwaClient />
-        <TanStackDevtools
-          config={{
-            position: 'bottom-right',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
+        <ThemeProvider>
+          <Header />
+          {children}
+          <PwaClient />
+          <TanStackDevtools
+            config={{
+              position: 'bottom-right',
+            }}
+            plugins={[
+              {
+                name: 'Tanstack Router',
+                render: <TanStackRouterDevtoolsPanel />,
+              },
+            ]}
+          />
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="purssh logo">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#DC2626" />
+      <stop offset="1" stop-color="#EF4444" />
+    </linearGradient>
+    <linearGradient id="glow" x1="136" y1="96" x2="376" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F97316" stop-opacity="0.6" />
+      <stop offset="1" stop-color="#FB923C" stop-opacity="0.3" />
+    </linearGradient>
+  </defs>
+
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#bg)" />
+  <path
+    d="M96 172C150 122 206 122 256 172S362 222 416 172"
+    fill="none"
+    stroke="url(#glow)"
+    stroke-width="40"
+    stroke-linecap="round"
+  />
+
+  <!-- RSS -->
+  <circle cx="186" cy="388" r="22" fill="#ffffff" opacity="0.98" />
+  <path
+    d="M186 318a70 70 0 0 1 70 70"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="28"
+    stroke-linecap="round"
+  />
+  <path
+    d="M186 248a140 140 0 0 1 140 140"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="28"
+    stroke-linecap="round"
+    opacity="0.92"
+  />
+</svg>
