@@ -141,13 +141,21 @@ function extractLinkTags(html: string): Array<{ rel: string; type: string | null
   return candidates
 }
 
+function ensureProtocol(url: string): string {
+  const trimmed = url.trim()
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed}`
+  }
+  return trimmed
+}
+
 export const discoverFeeds = createServerFn({ method: 'POST' })
   .handler(async (ctx) => {
     const { url } = (ctx.data ?? {}) as { url?: string }
     console.log('[discoverFeeds] called', { url })
     if (!url) throw new Error('Missing url')
 
-    const parsed = new URL(url)
+    const parsed = new URL(ensureProtocol(url))
     const res = await fetchWithTimeout(parsed.toString(), {
       redirect: 'follow',
       headers: {

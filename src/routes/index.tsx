@@ -41,6 +41,7 @@ function Home() {
 
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default')
   const [isStandalone, setIsStandalone] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
 
   const [feedUrl, setFeedUrl] = useState('')
   const [candidates, setCandidates] = useState<Array<{ url: string; title: string | null; type: string | null }> | null>(
@@ -67,6 +68,11 @@ function Home() {
     update()
     window.addEventListener('visibilitychange', update)
     return () => window.removeEventListener('visibilitychange', update)
+  }, [])
+
+  useEffect(() => {
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    setIsIOS(isIOSDevice)
   }, [])
 
   const installSteps = useMemo(() => {
@@ -233,7 +239,7 @@ function Home() {
                   {permission === 'granted' && 'Enable notifications to set up push.'}
                 </div>
 
-                {!isStandalone && (
+                {!isStandalone && isIOS && (
                   <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
                     <div className="font-semibold">iOS required step: install the app</div>
                     <ol className="mt-2 list-decimal space-y-1 pl-4">
