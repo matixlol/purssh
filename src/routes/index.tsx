@@ -1,5 +1,5 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { useMutation } from '@tanstack/react-query'
+import { createFileRoute } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { useEffect, useMemo, useState } from 'react'
 import { Bell, ExternalLink, Plus, RefreshCw, Trash2 } from 'lucide-react'
@@ -15,14 +15,28 @@ import {
 } from '../server/appFns'
 import { subscribeToWebPush } from '../client/push'
 
+const homeQueryKey = ['home-data']
+
 export const Route = createFileRoute('/')({
-  loader: async () => await getHomeData(),
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData({
+      queryKey: homeQueryKey,
+      queryFn: () => getHomeData(),
+    })
+  },
   component: Home,
 })
 
 function Home() {
-  const data = Route.useLoaderData()
-  const router = useRouter()
+  const queryClient = useQueryClient()
+  const homeQueryFn = useServerFn(getHomeData)
+  const homeQuery = useQuery({ queryKey: homeQueryKey, queryFn: homeQueryFn })
+  const data = homeQuery.data ?? {
+    userId: null,
+    hasPushSubscription: false,
+    feeds: [],
+    entries: [],
+  }
 
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default')
   const [isStandalone, setIsStandalone] = useState(false)
@@ -64,7 +78,7 @@ function Home() {
 
   const getStartedMutation = useMutation({
     mutationFn: useServerFn(ensureUser),
-    onSuccess: () => router.invalidate(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: homeQueryKey }),
   })
 
   const pushMutation = useMutation({
@@ -84,7 +98,7 @@ function Home() {
         data: { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
       })
     },
-    onSuccess: () => router.invalidate(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: homeQueryKey }),
   })
 
   const discoverMutation = useMutation({
@@ -96,16 +110,18 @@ function Home() {
 
   const subscribeMutation = useMutation({
     mutationFn: useServerFn(subscribeToFeed),
-    onSuccess: () => {
+    onSuccess: async () => {
       setCandidates(null)
       setFeedUrl('')
-      router.invalidate()
+      await queryClient.cancelQueries({ queryKey: homeQueryKey })
+      queryClient.removeQueries({ queryKey: homeQueryKey })
+      await queryClient.fetchQuery({ queryKey: homeQueryKey, queryFn: homeQueryFn })
     },
   })
 
   const unsubscribeMutation = useMutation({
     mutationFn: useServerFn(unsubscribeFeed),
-    onSuccess: () => router.invalidate(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: homeQueryKey }),
   })
 
   function onDiscover() {

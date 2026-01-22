@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getStartContext, getStartContextOrThrow } from './startContext'
 import { fetchWithTimeout } from './fetchWithTimeout'
 import { createUser } from './user'
+import { fetchAndStoreFeed } from './feedFetcher'
 
 type SubscribedFeed = {
   id: string
@@ -213,6 +214,16 @@ export const subscribeToFeed = createServerFn({ method: 'POST' }).handler(async 
     )
       .bind(feedId, feedUrl, Date.now(), 'active')
       .run()
+
+    await fetchAndStoreFeed(env, {
+      id: feedId,
+      url: feedUrl,
+      title: null,
+      status: 'active',
+      last_success_at: null,
+      failing_since: null,
+      failed24h_notified_at: null,
+    })
   }
 
   const subscriptionId = `sub_${crypto.randomUUID()}`
