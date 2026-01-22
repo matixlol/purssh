@@ -5,6 +5,7 @@ import { withSetCookie } from './server/http'
 import { getUserIdentity } from './server/user'
 import type { NotifyMessage } from './server/notify'
 import { fetchAndStoreFeed, shouldPauseFeed } from './server/feedFetcher'
+import { shouldEnqueueEntryNewNotifications } from './server/notificationPolicy'
 
 import { deserializeVapidKeys, sendPushNotification, toBase64Url, fromBase64Url } from 'web-push-browser'
 
@@ -111,6 +112,7 @@ export default {
     }>()
 
     const feeds = feedsRes.results ?? []
+    const priorLastSuccessAtByFeedId = new Map(feeds.map((f) => [f.id, f.last_success_at] as const))
 
     // Pause stale feeds and enqueue a one-time failure notification per failure episode.
     for (const f of feeds) {
@@ -162,6 +164,8 @@ export default {
     for (const outcome of outcomes) {
       if (!outcome.ok) continue
       if (outcome.newEntryCount <= 0 || !outcome.latestEntry) continue
+      const priorLastSuccessAt = priorLastSuccessAtByFeedId.get(outcome.feedId) ?? null
+      if (!shouldEnqueueEntryNewNotifications(priorLastSuccessAt)) continue
 
       const subs = await env.DB.prepare('SELECT user_id FROM subscriptions WHERE feed_id = ?')
         .bind(outcome.feedId)
