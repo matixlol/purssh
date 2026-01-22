@@ -270,24 +270,29 @@ function Home() {
       <section className="mt-6 space-y-3">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="text-sm font-semibold text-white">Add a feed</div>
-          <div className="mt-2 flex gap-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              onDiscover()
+            }}
+            className="mt-2 flex gap-2"
+          >
             <input
               value={feedUrl}
               onChange={(e) => setFeedUrl(e.target.value)}
               inputMode="url"
               placeholder="Paste a site or RSS URL"
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-base text-white placeholder:text-slate-500"
             />
             <button
-              type="button"
-              onClick={onDiscover}
+              type="submit"
               disabled={!feedUrl || discoverMutation.isPending}
               className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-slate-800 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               {discoverMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Find
             </button>
-          </div>
+          </form>
           {discoverError && <div className="mt-2 text-sm text-rose-300">{discoverError}</div>}
           {discoverMutation.isSuccess && candidates?.length === 0 && (
             <div className="mt-2 text-sm text-rose-300">No RSS/Atom feeds found at that URL.</div>
