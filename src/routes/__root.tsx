@@ -20,6 +20,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: 'width=device-width, initial-scale=1',
       },
       {
+        name: 'color-scheme',
+        content: 'light dark',
+      },
+      {
         name: 'theme-color',
         content: '#020617',
         media: '(prefers-color-scheme: dark)',
