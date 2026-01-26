@@ -39,7 +39,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         document.documentElement.setAttribute('data-theme', 'dark')
         document.documentElement.classList.add('dark')
       } else {
-        document.documentElement.removeAttribute('data-theme')
+        document.documentElement.setAttribute('data-theme', 'light')
         document.documentElement.classList.remove('dark')
       }
     }
