@@ -10,8 +10,8 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || '',
     data: data.data || {},
-    icon: '/logo192.png',
-    badge: '/logo192.png',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
   }
 
   event.waitUntil(self.registration.showNotification(title, options))
@@ -28,4 +28,3 @@ self.addEventListener('notificationclick', (event) => {
     }),
   )
 })
-
